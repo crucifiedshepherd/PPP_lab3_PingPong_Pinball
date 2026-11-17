@@ -6,7 +6,7 @@
 
 > Это документация только для Pong. [Общий README проекта](../../README.md) · [README Pinball](../pinball/README.md).
 
-![Оформление Ping Pong](pong_preview.png)
+![Оформление Ping Pong](docs/pong_preview.png)
 
 *Иллюстрация игрового поля, составленная из графических ресурсов проекта.*
 
