@@ -1,4 +1,4 @@
-"""Запуск Pinball и совместимость с существующими тестами."""
+"""Отдельный запуск Pinball для проверки и отладки."""
 
 import pygame
 
@@ -10,7 +10,7 @@ from src.pinball.objects import Ball, Bumper, Flipper, Rail, Standup
 
 
 def main():
-    """Run this game alone without changing Vlad's shared entry point."""
+    """Запускает игровое окно без общего меню проекта."""
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Pinball Arcade")
@@ -19,13 +19,10 @@ def main():
     running = True
 
     while running:
-        # Время между кадрами передаётся физике в секундах.
+        # В игровую физику передаём время кадра в секундах.
         dt = clock.tick(FPS) / 1000
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
-            elif (event.type == pygame.KEYDOWN
-                  and event.key == pygame.K_ESCAPE):
                 running = False
             game.handle_event(event)
 

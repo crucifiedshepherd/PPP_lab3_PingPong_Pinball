@@ -1,8 +1,4 @@
-"""Regression tests for the playable Pinball mode.
-
-Run with: python -m unittest discover -s tests -v
-These tests do not open a visible window or modify the shared game.
-"""
+"""Базовые проверки физики и правил Pinball."""
 
 import os
 import unittest
@@ -26,20 +22,20 @@ from src.games.pinball import (  # noqa: E402
 
 
 class TestPinballPhysics(unittest.TestCase):
-    """Check launches, collisions, state changes, and rendering."""
+    """Проверяет запуск, столкновения, очки и завершение партии."""
 
     @classmethod
     def setUpClass(cls):
-        """Prepare Pygame without creating a visible game window."""
+        """Подготавливает Pygame к тестам без видимого окна."""
         pygame.init()
 
     @classmethod
     def tearDownClass(cls):
-        """Release Pygame resources when all tests finish."""
+        """Освобождает ресурсы Pygame после тестов."""
         pygame.quit()
 
     def test_launch_reaches_playfield(self):
-        """A plunger shot must leave the separate right-hand lane."""
+        """Проверяет выход шарика из пускового канала."""
         for power in (0.0, 0.5, 1.0):
             with self.subTest(power=power):
                 ball = Ball()
@@ -51,7 +47,7 @@ class TestPinballPhysics(unittest.TestCase):
                 self.assertEqual(ball.mode, "play")
 
     def test_active_left_and_right_flipper(self):
-        """Both flippers must kick a descending ball upward."""
+        """Проверяет удары обоими активными флипперами."""
         cases = ((1, 482, RED), (-1, 772, TEAL))
         for direction, x, color in cases:
             with self.subTest(direction=direction):
@@ -74,7 +70,7 @@ class TestPinballPhysics(unittest.TestCase):
                 self.assertLess(ball.velocity.y, 0)
 
     def test_rail_reflects_a_ball(self):
-        """A line collider must prevent movement through its segment."""
+        """Проверяет отражение шарика от направляющей."""
         rail = Rail((400, 450), (650, 450))
         ball = Ball()
         ball.mode = "play"
@@ -84,7 +80,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertLess(ball.velocity.y, 0)
 
     def test_bumper_awards_once_per_contact(self):
-        """A bumper must score and cool down between collisions."""
+        """Проверяет задержку начисления очков у бампера."""
         bumper = Bumper(500, 250, 30, TEAL)
         ball = Ball()
         ball.mode = "play"
@@ -94,7 +90,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertEqual(bumper.hit(ball), 0)
 
     def test_target_awards_points(self):
-        """A target must reflect a ball and grant its configured score."""
+        """Проверяет отражение и награду за попадание в мишень."""
         target = Standup(550, 400, RED, points=150)
         ball = Ball()
         ball.position = pygame.Vector2(550, 380)
@@ -102,7 +98,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertEqual(target.hit(ball), 150)
 
     def test_ball_drain_consumes_life(self):
-        """A ball past the bottom of the table must consume one life."""
+        """Проверяет потерю шара при попадании в слив."""
         game = PinballGame()
         game.status = "playing"
         game.ball.mode = "play"
@@ -113,7 +109,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertEqual(game.status, "ready")
 
     def test_last_ball_ends_game(self):
-        """The third drain must transition to the Game Over state."""
+        """Проверяет завершение партии после третьего шара."""
         game = PinballGame()
         game.lives = 1
         game.status = "playing"
@@ -125,7 +121,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertEqual(game.status, "over")
 
     def test_restart_resets_match(self):
-        """Restart must restore the score, three lives, and the plunger."""
+        """Проверяет восстановление начального состояния игры."""
         game = PinballGame()
         game.score = 1400
         game.lives = 0
@@ -135,7 +131,7 @@ class TestPinballPhysics(unittest.TestCase):
         self.assertEqual(game.ball.mode, "ready")
 
     def test_draw_is_compatible_with_shared_window(self):
-        """The renderer must accept the shared app's 1000x700 surface."""
+        """Проверяет отрисовку в окне общего приложения."""
         game = PinballGame()
         surface = pygame.Surface((1000, 700))
         game.draw(surface)

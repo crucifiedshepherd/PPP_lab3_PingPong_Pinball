@@ -1,4 +1,4 @@
-"""Regression tests for Pinball flipper gaps and lower side drains."""
+"""Проверки ширины сливов и геометрии нижней части стола."""
 
 import os
 import unittest
@@ -15,20 +15,20 @@ from src.games.pinball import (  # noqa: E402
 
 
 class TestPinballGeometry(unittest.TestCase):
-    """Verify that the lower field has playable, open drain paths."""
+    """Проверяет проходы между флипперами и направляющими."""
 
     @classmethod
     def setUpClass(cls):
-        """Prepare Pygame for headless testing."""
+        """Подготавливает Pygame к тестам без видимого окна."""
         pygame.init()
 
     @classmethod
     def tearDownClass(cls):
-        """Shut down Pygame after the tests."""
+        """Освобождает ресурсы Pygame после тестов."""
         pygame.quit()
 
     def test_center_gap_is_wider_than_ball(self):
-        """Leave room for a real ball-sized central drain."""
+        """Проверяет ширину центрального слива."""
         game = PinballGame()
         left_tip = game.left_flipper.endpoints()[1]
         right_tip = game.right_flipper.endpoints()[1]
@@ -38,7 +38,7 @@ class TestPinballGeometry(unittest.TestCase):
         self.assertGreater(free_width, 2 * BALL_RADIUS + 20)
 
     def test_center_gap_remains_open_while_flippers_rise(self):
-        """Do not close the drain when both paddles are raised."""
+        """Проверяет слив при поднятых флипперах."""
         game = PinballGame()
         game.left_flipper.update(0.2, True)
         game.right_flipper.update(0.2, True)
@@ -50,7 +50,7 @@ class TestPinballGeometry(unittest.TestCase):
         self.assertGreater(free_width, 2 * BALL_RADIUS + 20)
 
     def test_single_lower_guide_per_side(self):
-        """Avoid pairs of lower rails that can form narrow V pockets."""
+        """Проверяет число нижних боковых направляющих."""
         game = PinballGame()
         lower = [
             rail for rail in game.rails
@@ -61,7 +61,7 @@ class TestPinballGeometry(unittest.TestCase):
         self.assertGreater(lower[1].a.x, game.right_flipper.pivot.x)
 
     def test_central_and_side_drains_consume_a_ball(self):
-        """A ball below the flippers can fall through each open exit."""
+        """Проверяет потерю шара через нижние проходы."""
         for x in (355, 628, 913):
             with self.subTest(x=x):
                 game = PinballGame()
@@ -77,7 +77,7 @@ class TestPinballGeometry(unittest.TestCase):
                 self.assertEqual(game.status, "ready")
 
     def test_ball_leaves_the_previous_side_pockets(self):
-        """Representative old trap positions must not freeze a ball."""
+        """Проверяет отсутствие застревания у нижних направляющих."""
         for x, y in ((429, 637), (447, 660), (845, 637)):
             with self.subTest(x=x, y=y):
                 game = PinballGame()
@@ -96,7 +96,7 @@ class TestPinballGeometry(unittest.TestCase):
                 self.assertGreater(furthest, 80)
 
     def test_draw_scales_to_shared_application(self):
-        """Keep compatibility with Vlad's 1000x700 game window."""
+        """Проверяет отображение в общем окне игры."""
         game = PinballGame()
         surface = pygame.Surface((1000, 700))
         game.draw(surface)

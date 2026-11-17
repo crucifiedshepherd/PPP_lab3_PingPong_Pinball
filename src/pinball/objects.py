@@ -1,4 +1,4 @@
-"""Шарик, флипперы, направляющие и мишени Pinball."""
+"""Физические объекты игрового поля и их отрисовка."""
 
 import math
 
@@ -16,73 +16,97 @@ from src.pinball.config import (
 
 
 class Ball:
-    """Store ball movement, launch state, and motion trail."""
+    """Хранит положение, скорость и состояние игрового шарика."""
 
     def __init__(self):
-        """Create one ball in its launch trough."""
+        """Создаёт шарик в пусковом канале."""
         self.radius = BALL_RADIUS
         self.position = pygame.Vector2(LAUNCH_X, LAUNCH_Y)
         self.velocity = pygame.Vector2(0, 0)
         self.mode = "ready"
         self.power = 0.0
+        self.entry_t = 0.0
         self.trail = []
 
     def reset(self):
-        """Place the ball back on the spring without starting it."""
+        """Возвращает шарик в исходное положение."""
         self.position.update(LAUNCH_X, LAUNCH_Y)
         self.velocity.update(0, 0)
         self.mode = "ready"
+        self.entry_t = 0.0
         self.trail.clear()
 
     def launch(self, power):
-        """Send the ball up the separate launch lane."""
+        """Запускает шарик с силой, зависящей от заряда."""
         self.power = max(0.0, min(1.0, power))
-        self.velocity.update(0, -(960 + 150 * self.power))
+        # Даже небольшой заряд выводит шарик на поле; полный ускоряет его.
+        self.velocity.update(0, -(850 + 330 * self.power))
         self.mode = "lane"
+        self.entry_t = 0.0
         self.trail.clear()
 
     def cap_speed(self):
-        """Keep the ball fast enough to play but slow enough to follow."""
+        """Ограничивает скорость шарика допустимым значением."""
         length_sq = self.velocity.length_squared()
         if length_sq > TOP_SPEED * TOP_SPEED:
             self.velocity.scale_to_length(TOP_SPEED)
 
+    @staticmethod
+    def entry_point(progress):
+        """Вычисляет точку на кривой выхода из пускового канала."""
+        t = max(0.0, min(1.0, progress))
+        points = ((LAUNCH_X, 128), (987, 159),
+                  (927, 221), (861, 242))
+        start, c1, c2, end = (pygame.Vector2(p) for p in points)
+        u = 1.0 - t
+        return (start * (u ** 3) + c1 * (3 * u * u * t)
+                + c2 * (3 * u * t * t) + end * (t ** 3))
+
     def advance(self, dt):
-        """Integrate gravity, launch lane, and outside walls."""
-        if self.mode not in ("lane", "play"):
+        """Перемещает шарик и применяет гравитацию."""
+        if self.mode not in ("lane", "entry", "play"):
             return
-        # Гравитация изменяет вертикальную составляющую скорости.
+
+        if self.mode == "entry":
+            # До выхода на поле шарик движется по заданной кривой.
+            self.entry_t = min(1.0, self.entry_t + dt / 0.28)
+            self.position = self.entry_point(self.entry_t)
+            if self.entry_t >= 1.0:
+                self.mode = "play"
+                # Заряд определяет скорость при переходе к обычной физике.
+                self.velocity.update(
+                    -170 - 280 * self.power,
+                    170 - 270 * self.power,
+                )
+            return
+
+        # После выхода на поле на шарик действует гравитация.
         self.velocity.y += GRAVITY * dt
         if self.mode == "play":
             self.cap_speed()
-        # Обновляем положение после изменения скорости.
         self.position += self.velocity * dt
 
-        # Из пускового канала шарик попадает в верхнюю часть поля.
         if self.mode == "lane":
             self.position.x = LAUNCH_X
-            if self.position.y <= 119:
-                # The ball leaves the one-way launch lane above the table.
-                self.mode = "play"
-                self.position.update(891, 137)
-                self.velocity.update(-220 - 140 * self.power, 90)
+            if self.position.y <= 128:
+                # Выход начинается с конца траектории без скачка координат.
+                self.mode = "entry"
+                self.entry_t = 0.0
+                self.position = self.entry_point(0.0)
             return
 
-        # Отражение от левой границы игрового поля.
         if self.position.x - self.radius < LEFT:
             self.position.x = LEFT + self.radius
             self.velocity.x = abs(self.velocity.x) * 0.91
-        # Отражение от правой границы.
         if self.position.x + self.radius > RIGHT:
             self.position.x = RIGHT - self.radius
             self.velocity.x = -abs(self.velocity.x) * 0.91
-        # Отражение от верхней границы.
         if self.position.y - self.radius < TOP:
             self.position.y = TOP + self.radius
             self.velocity.y = abs(self.velocity.y) * 0.91
 
     def draw(self, surface):
-        """Draw a metal ball, a small shine, and a subtle short trail."""
+        """Рисует металлический шарик и след его движения."""
         for index, location in enumerate(self.trail):
             strength = (index + 1) / (len(self.trail) + 1)
             color = (
@@ -92,16 +116,16 @@ class Ball:
             )
             pygame.draw.circle(surface, color, pos(location), 3 + index // 3)
         at = pos(self.position)
-        pygame.draw.circle(surface, SHADOW, (at[0] + 3, at[1] + 4), 14)
+        pygame.draw.circle(surface, SHADOW, (at[0] + 3, at[1] + 4), 17)
         pygame.draw.circle(surface, METAL, at, self.radius + 1)
         pygame.draw.circle(surface, CREAM, (at[0] - 3, at[1] - 3), 4)
 
 
 class Rail:
-    """A drawn and collidable section of metal guardrail."""
+    """Направляющая, отражающая шарик от своего отрезка."""
 
     def __init__(self, a, b, color=METAL, width=7, bounce=0.82):
-        """Remember the exact collision segment."""
+        """Создаёт направляющую между двумя точками."""
         self.a = pygame.Vector2(a)
         self.b = pygame.Vector2(b)
         self.color = color
@@ -109,17 +133,17 @@ class Rail:
         self.bounce = bounce
 
     def hit(self, ball):
-        """Separate the ball and reflect it on an incoming impact."""
+        """Проверяет столкновение шарика с направляющей."""
         contact = circle_segment(ball, self.a, self.b, self.width)
         if contact is None:
             return False
         nearest, normal, distance, _ = contact
-        # Устраняем пересечение шарика с направляющей.
+        # Устраняем проникновение шарика внутрь направляющей.
         ball.position = nearest + normal * (distance + 0.2)
         return reflect_velocity(ball.velocity, normal, self.bounce)
 
     def draw(self, surface):
-        """Render the metal guardrail with a shadow and highlight."""
+        """Рисует металлическую направляющую."""
         pygame.draw.line(
             surface, SHADOW, self.a + (2, 3), self.b + (2, 3),
             self.width + 6,
@@ -129,10 +153,10 @@ class Rail:
 
 
 class Flipper:
-    """Rotating flipper with reliable capsule contact and an active kick."""
+    """Управляемая ракетка с вращением вокруг шарнира."""
 
     def __init__(self, x, y, direction, color):
-        """Set a left or right hinge and its resting angle."""
+        """Задаёт шарнир, направление и цвет флиппера."""
         self.pivot = pygame.Vector2(x, y)
         self.direction = direction
         self.color = color
@@ -142,19 +166,22 @@ class Flipper:
         self.pressed = False
         self.swinging = False
         self.cooldown = 0.0
+        # Событие точного удара хранится только в пределах одного шага.
+        self.last_hit_perfect = False
+        self.last_hit_fraction = 0.0
 
     def update(self, dt, pressed):
-        """Move the paddle each physics substep, not once per frame."""
+        """Обновляет угол наклона флиппера."""
         self.pressed = bool(pressed)
         previous = self.lift
-        # Подъём и возврат ракетки происходят с разной скоростью.
+        # Флиппер поднимается быстрее, чем опускается.
         change = (15 if self.pressed else -12) * dt
         self.lift = max(0.0, min(1.0, self.lift + change))
         self.swinging = self.lift > previous + 0.00001
         self.cooldown = max(0.0, self.cooldown - dt)
 
     def endpoints(self):
-        """Return the actual moving collision capsule endpoints."""
+        """Вычисляет концы физического контура флиппера."""
         radians = math.radians(14 - 51 * self.lift)
         finish = self.pivot + pygame.Vector2(
             self.direction * self.length * math.cos(radians),
@@ -163,17 +190,15 @@ class Flipper:
         return self.pivot, finish
 
     def hit(self, ball):
-        """Catch a descending ball and kick it into the table.
-
-        Crucially, an active rotating paddle can hit a ball even when the
-        latter is not approaching a *stationary* collision normal.
-        """
+        """Обрабатывает удар шарика о движущийся флиппер."""
+        # Сбрасываем отметку Perfect Flip перед новой проверкой контакта.
+        self.last_hit_perfect = False
         a, b = self.endpoints()
         contact = circle_segment(ball, a, b, self.thickness)
         if contact is None:
             return False
         nearest, normal, limit, fraction = contact
-        # Разделяем соприкоснувшиеся поверхности до расчёта удара.
+        # Сначала разделяем пересёкшиеся поверхности.
         ball.position = nearest + normal * (limit + 0.35)
         above = ball.position.y <= nearest.y + 4
         incoming = ball.velocity.dot(normal) < 0
@@ -181,7 +206,16 @@ class Flipper:
         if (above and (self.pressed or self.swinging)
                 and self.cooldown <= 0
                 and ball.velocity.y > -180):
-            # Timing a swing produces an unmistakable upward shot.
+            # Для Perfect Flip нужен поднимающийся флиппер,
+            # контакт ближе к его концу и падающий шарик.
+            self.last_hit_fraction = fraction
+            self.last_hit_perfect = (
+                self.pressed and self.swinging
+                and 0.54 <= fraction <= 0.95
+                and 0.12 <= self.lift <= 0.94
+                and ball.velocity.y > 35
+            )
+            # Активный взмах передаёт шарику дополнительный импульс.
             ball.velocity.x = (
                 self.direction * (165 + 220 * fraction)
                 + 0.22 * ball.velocity.x
@@ -193,18 +227,17 @@ class Flipper:
             ball.cap_speed()
             return True
 
-        # Пассивный отскок менее сильный, чем активный удар.
+        # Пассивный флиппер отражает шарик слабее активного.
         if incoming:
-            # A resting paddle can still deflect a ball, with less energy.
-            reflect_velocity(ball.velocity, normal, 0.73)
-            if above and ball.velocity.y > -215:
-                ball.velocity.y = -215
+            # Удерживаемый флиппер не должен постоянно спасать шарик
+            # сильным автоматическим подбросом.
+            reflect_velocity(ball.velocity, normal, 0.63)
             ball.cap_speed()
             return True
         return False
 
     def draw(self, surface):
-        """Render a physical-looking paddle, tips, hinge, and highlight."""
+        """Рисует флиппер с шарниром и подсветкой."""
         a, b = self.endpoints()
         pygame.draw.line(
             surface, SHADOW, a + (3, 5), b + (3, 5),
@@ -222,10 +255,10 @@ class Flipper:
 
 
 class Bumper:
-    """Large spring-loaded pop bumper that awards points on impact."""
+    """Круглый бампер с отскоком и начислением очков."""
 
     def __init__(self, x, y, radius, color, points=100):
-        """Build a circular bumper with a collision radius."""
+        """Задаёт положение, радиус и награду за удар."""
         self.center = pygame.Vector2(x, y)
         self.radius = radius
         self.color = color
@@ -233,11 +266,11 @@ class Bumper:
         self.flash = 0.0
 
     def update(self, dt):
-        """Fade the temporary hit indicator."""
+        """Обновляет подсветку и задержку между попаданиями."""
         self.flash = max(0.0, self.flash - dt)
 
     def hit(self, ball):
-        """Apply a radial reflection and return newly scored points."""
+        """Отталкивает шарик и отмечает засчитанный удар."""
         difference = ball.position - self.center
         radius = self.radius + ball.radius
         squared = difference.length_squared()
@@ -249,19 +282,19 @@ class Bumper:
         approaching = ball.velocity.dot(normal) < 0
         if not approaching:
             return 0
-        # A bumper pushes outward without multiplying speed forever.
+        # Отскок не должен бесконечно наращивать скорость.
         incoming = ball.velocity.dot(normal)
         ball.velocity -= 1.6 * incoming * normal
         ball.velocity += normal * 115
         ball.cap_speed()
-        # Не начисляем очки повторно за непрерывный контакт.
+        # Повторное начисление блокируется на время контакта.
         if self.flash > 0:
             return 0
         self.flash = 0.11
         return self.points
 
     def draw(self, surface):
-        """Draw a domed metal bumper, not a hollow neon ring."""
+        """Рисует купол бампера и световой обод."""
         center = pos(self.center)
         rim = CREAM if self.flash else METAL
         pygame.draw.circle(
@@ -277,10 +310,10 @@ class Bumper:
 
 
 class Standup:
-    """Small upright physical target with per-hit scoring cooldown."""
+    """Небольшая мишень с задержкой повторного срабатывания."""
 
     def __init__(self, x, y, color, points=150):
-        """Create a compact round target."""
+        """Создаёт мишень с заданным количеством очков."""
         self.center = pygame.Vector2(x, y)
         self.radius = 14
         self.color = color
@@ -288,11 +321,11 @@ class Standup:
         self.flash = 0.0
 
     def update(self, dt):
-        """Count down the target glow."""
+        """Уменьшает время подсветки и задержки."""
         self.flash = max(0, self.flash - dt)
 
     def hit(self, ball):
-        """Bounce the ball and return points for a fresh contact."""
+        """Обрабатывает попадание шарика в мишень."""
         difference = ball.position - self.center
         distance_sq = difference.length_squared()
         allowed = self.radius + ball.radius
@@ -303,14 +336,14 @@ class Standup:
         ball.position = self.center + normal * (allowed + 0.3)
         if not reflect_velocity(ball.velocity, normal, 0.8):
             return 0
-        # Подсветка одновременно предотвращает повторный счёт.
+        # Время подсветки одновременно служит защитой от повторного счёта.
         if self.flash > 0:
             return 0
         self.flash = 0.17
         return self.points
 
     def draw(self, surface):
-        """Draw a bright stand-up lamp mounted on a metal post."""
+        """Рисует мишень и её индикатор."""
         at = pos(self.center)
         pygame.draw.circle(surface, SHADOW, (at[0] + 2, at[1] + 3), 19)
         pygame.draw.circle(surface, METAL, at, 17)
