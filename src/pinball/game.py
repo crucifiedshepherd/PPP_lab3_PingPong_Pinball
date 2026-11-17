@@ -117,6 +117,7 @@ class PinballGame(PinballRenderer):
         self.point_events = []
         self.game_over_elapsed = 0.0
         self.quit_requested = False
+        self.menu_requested = False
         self.menu_open = False
         self.menu_elapsed = 0.0
         self.score_pulse = 0.0
@@ -272,6 +273,10 @@ class PinballGame(PinballRenderer):
             self._play_sound("button")
             self.restart()
             return "restart"
+        if buttons["menu"].collidepoint(x, y):
+            self._play_sound("button")
+            self.menu_requested = True
+            return "menu"
         if buttons["quit"].collidepoint(x, y):
             self._play_sound("button")
             self.quit_requested = True

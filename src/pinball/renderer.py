@@ -807,7 +807,7 @@ class PinballRenderer:
                            ("menu", "MENU"),
                            ("quit", "QUIT GAME")):
             rect = self.end_buttons()[name]
-            enabled = name != "menu"
+            enabled = True
             hovered = (enabled and mouse is not None
                        and rect.collidepoint(mouse))
             self._end_button(scene, rect, text, enabled, hovered)
