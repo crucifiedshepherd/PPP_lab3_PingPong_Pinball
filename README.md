@@ -15,9 +15,9 @@
 
 Обе игры запускаются из одного приложения. В стартовом меню можно выбрать режим мышью или клавишами `1` и `2`. При переключении размер окна подстраивается под выбранную игру.
 
-![Предпросмотр menu](menu_preview.png)
+![Предпросмотр menu](docs/menu_preview.png)
 
-![Предпросмотр Ping Pong](pong_preview.png)
+![Предпросмотр Ping Pong](docs/pong_preview.png)
 
 ![Предпросмотр Pinball](docs/pinball_preview.png)
 
