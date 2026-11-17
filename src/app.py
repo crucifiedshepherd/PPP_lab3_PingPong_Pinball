@@ -1,6 +1,9 @@
+
 """Основное приложение."""
 
 import pygame
+
+from src.games.pong import PongGame
 
 
 class App:
@@ -11,7 +14,7 @@ class App:
     FPS = 60
 
     def __init__(self):
-        """Инициализирует окно и необходимые объекты."""
+        """Инициализирует окно и игровые объекты."""
         pygame.init()
 
         pygame.display.set_caption("Ping-Pong and Pinball")
@@ -22,6 +25,8 @@ class App:
 
         self.clock = pygame.time.Clock()
         self.is_running = True
+
+        self.game = PongGame(self.screen)
 
     def run(self):
         """Запускает главный игровой цикл."""
@@ -35,16 +40,18 @@ class App:
         pygame.quit()
 
     def _handle_events(self):
-        """Обрабатывает события окна."""
+        """Обрабатывает события приложения и текущей игры."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.is_running = False
+            else:
+                self.game.handle_event(event)
 
     def _update(self):
-        """Обновляет состояние приложения."""
-        pass
+        """Обновляет состояние текущей игры."""
+        self.game.update()
 
     def _draw(self):
-        """Отрисовывает содержимое окна."""
-        self.screen.fill((0, 0, 0))
+        """Отрисовывает текущую игру и обновляет экран."""
+        self.game.draw()
         pygame.display.flip()
